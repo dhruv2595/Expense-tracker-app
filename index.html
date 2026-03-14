@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Expenses</title>
+<meta name="theme-color" content="#050506">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Expenses">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-deep: #020203;
+    --bg-base: #050506;
+    --bg-elevated: #0a0a0c;
+    --surface: rgba(255,255,255,0.05);
+    --surface-hover: rgba(255,255,255,0.08);
+    --fg: #EDEDEF;
+    --fg-muted: #8A8F98;
+    --fg-subtle: rgba(255,255,255,0.40);
+    --accent: #5E6AD2;
+    --accent-bright: #6872D9;
+    --accent-glow: rgba(94,106,210,0.3);
+    --border: rgba(255,255,255,0.06);
+    --border-hover: rgba(255,255,255,0.10);
+    --border-accent: rgba(94,106,210,0.30);
+    --ease-expo: cubic-bezier(0.16, 1, 0.3, 1);
+    --green: #34D399;
+    --green-glow: rgba(52,211,153,0.25);
+    --orange: #FB923C;
+    --orange-glow: rgba(251,146,60,0.2);
+    --blue: #60A5FA;
+    --blue-glow: rgba(96,165,250,0.2);
+    --purple: #A78BFA;
+    --purple-glow: rgba(167,139,250,0.2);
+    --slate: #94A3B8;
+    --slate-glow: rgba(148,163,184,0.15);
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg-base);
+    color: var(--fg);
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---- Ambient Background ---- */
+  .ambient {
+    position: fixed; inset: 0; z-index: 0; pointer-events: none; overflow: hidden;
+  }
+  .ambient::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at top center, #0a0a0f 0%, #050506 50%, #020203 100%);
+  }
+  .blob {
+    position: absolute; border-radius: 50%; filter: blur(120px); will-change: transform;
+  }
+  .blob-1 {
+    width: 500px; height: 700px; top: -200px; left: 50%; transform: translateX(-50%);
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    animation: float1 10s ease-in-out infinite;
+  }
+  .blob-2 {
+    width: 300px; height: 400px; top: 40%; right: -100px;
+    background: radial-gradient(circle, rgba(167,139,250,0.12) 0%, transparent 70%);
+    animation: float2 8s ease-in-out infinite;
+  }
+  .blob-3 {
+    width: 350px; height: 350px; bottom: -50px; left: -80px;
+    background: radial-gradient(circle, rgba(96,165,250,0.08) 0%, transparent 70%);
+    animation: float3 9s ease-in-out infinite;
+  }
+  .noise {
+    position: absolute; inset: 0; opacity: 0.018;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 128px;
+  }
+
+  @keyframes float1 { 0%,100%{transform:translateX(-50%) translateY(0)} 50%{transform:translateX(-50%) translateY(-15px) rotate(0.5deg)} }
+  @keyframes float2 { 0%,100%{transform:translateY(0) rotate(0deg)} 50%{transform:translateY(-20px) rotate(1deg)} }
+  @keyframes float3 { 0%,100%{transform:translateY(0)} 50%{transform:translateY(12px) rotate(-0.5deg)} }
+
+  /* ---- Container ---- */
+  .app {
+    position: relative; z-index: 1;
+    max-width: 420px; margin: 0 auto;
+    padding: 20px 16px 120px;
+    min-height: 100vh; min-height: 100dvh;
+  }
+
+  /* ---- Header ---- */
+  .header {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 12px 0 20px;
+  }
+  .header h1 {
+    font-size: 28px; font-weight: 700; letter-spacing: -0.03em;
+    background: linear-gradient(180deg, #fff 0%, rgba(255,255,255,0.7) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .month-row {
+    display: flex; align-items: center; gap: 8px; margin-top: 4px;
+  }
+  .month-label {
+    font-size: 13px; color: var(--fg-muted); font-weight: 400;
+  }
+  .month-total {
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; font-weight: 500;
+    color: var(--fg); letter-spacing: -0.02em;
+  }
+  .settings-btn {
+    width: 40px; height: 40px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s var(--ease-expo);
+    color: var(--fg-muted);
+  }
+  .settings-btn:hover { background: var(--surface-hover); border-color: var(--border-hover); }
+  .settings-btn:active { transform: scale(0.96); }
+  .settings-btn svg { width: 18px; height: 18px; }
+
+  /* ---- Settings ---- */
+  .settings {
+    max-height: 0; overflow: hidden; opacity: 0;
+    transition: max-height 0.4s var(--ease-expo), opacity 0.3s var(--ease-expo), margin 0.4s var(--ease-expo);
+    margin-bottom: 0;
+  }
+  .settings.open { max-height: 220px; opacity: 1; margin-bottom: 16px; }
+  .settings-inner {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 16px; padding: 16px;
+    box-shadow: 0 0 0 1px var(--border), 0 4px 24px rgba(0,0,0,0.4);
+  }
+  .settings-inner label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--fg-muted); display: block; margin-bottom: 8px;
+  }
+  .url-row { display: flex; gap: 8px; }
+  .url-input {
+    flex: 1; padding: 10px 12px; border-radius: 8px;
+    background: var(--bg-base); border: 1px solid var(--border);
+    font-size: 12px; font-family: 'JetBrains Mono', monospace;
+    color: var(--fg); outline: none; transition: border-color 0.2s;
+    min-width: 0;
+  }
+  .url-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .url-input::placeholder { color: var(--fg-subtle); }
+  .connect-btn {
+    padding: 10px 16px; border-radius: 8px; border: none;
+    background: var(--accent); color: #fff; font-size: 12px; font-weight: 600;
+    font-family: 'Inter', sans-serif; cursor: pointer; white-space: nowrap;
+    box-shadow: 0 0 0 1px rgba(94,106,210,0.5), 0 4px 12px rgba(94,106,210,0.3), inset 0 1px 0 0 rgba(255,255,255,0.15);
+    transition: all 0.15s var(--ease-expo);
+  }
+  .connect-btn:hover { background: var(--accent-bright); }
+  .connect-btn:active { transform: scale(0.96); }
+  .connected-dot {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--green); font-weight: 500; margin-top: 10px;
+  }
+  .connected-dot::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 8px var(--green-glow);
+  }
+
+  /* ---- Form Card ---- */
+  .card {
+    background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
+    border: 1px solid var(--border); border-radius: 20px; padding: 20px;
+    box-shadow: 0 0 0 1px var(--border), 0 4px 30px rgba(0,0,0,0.3), 0 0 60px rgba(0,0,0,0.15);
+    position: relative; overflow: hidden;
+  }
+  .card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.08) 50%, transparent 100%);
+  }
+
+  .form-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--fg-muted);
+    display: block; margin-bottom: 10px; margin-top: 20px;
+  }
+  .form-label:first-child { margin-top: 0; }
+
+  /* ---- Category Chips ---- */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip {
+    display: flex; align-items: center; gap: 7px;
+    padding: 9px 14px; border-radius: 10px;
+    font-size: 13px; font-weight: 500;
+    cursor: pointer; border: 1px solid var(--border);
+    background: var(--surface); color: var(--fg-muted);
+    transition: all 0.2s var(--ease-expo);
+    -webkit-user-select: none; user-select: none;
+  }
+  .chip svg { width: 16px; height: 16px; flex-shrink: 0; }
+  .chip:active { transform: scale(0.96); }
+  .chip.active {
+    color: #fff; border-color: transparent;
+    transform: scale(1.02);
+  }
+  .chip[data-cat="Grocery"].active {
+    background: rgba(52,211,153,0.15); border-color: rgba(52,211,153,0.3); color: var(--green);
+  }
+  .chip[data-cat="Dining Out"].active {
+    background: rgba(251,146,60,0.15); border-color: rgba(251,146,60,0.3); color: var(--orange);
+  }
+  .chip[data-cat="Transportation"].active {
+    background: rgba(96,165,250,0.15); border-color: rgba(96,165,250,0.3); color: var(--blue);
+  }
+  .chip[data-cat="Subscriptions"].active {
+    background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.3); color: var(--purple);
+  }
+  .chip[data-cat="Misc"].active {
+    background: rgba(148,163,184,0.12); border-color: rgba(148,163,184,0.25); color: var(--slate);
+  }
+
+  /* ---- Amount ---- */
+  .amount-wrap {
+    display: flex; align-items: center;
+    background: var(--bg-base); border: 1px solid var(--border);
+    border-radius: 12px; padding: 4px 16px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .amount-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .dollar {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; font-weight: 500; color: var(--fg-subtle); margin-right: 4px;
+  }
+  .amount-input {
+    flex: 1; border: none; background: transparent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 32px; font-weight: 600; padding: 8px 0;
+    outline: none; color: var(--fg); width: 100%;
+    letter-spacing: -0.02em;
+  }
+  .amount-input::placeholder { color: var(--fg-subtle); opacity: 0.4; }
+  /* Remove number spinners */
+  .amount-input::-webkit-inner-spin-button,
+  .amount-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .amount-input { -moz-appearance: textfield; }
+
+  /* ---- Inputs ---- */
+  .form-input {
+    width: 100%; padding: 12px 14px; border-radius: 10px;
+    background: var(--bg-base); border: 1px solid var(--border);
+    font-size: 14px; font-family: 'Inter', sans-serif;
+    color: var(--fg); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    color-scheme: dark;
+  }
+  .form-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+  }
+  .form-input::placeholder { color: var(--fg-subtle); }
+
+  /* ---- Save Button ---- */
+  .save-btn {
+    margin-top: 24px; width: 100%; padding: 15px;
+    border: none; border-radius: 12px;
+    font-size: 14px; font-weight: 600; letter-spacing: -0.01em;
+    font-family: 'Inter', sans-serif; cursor: pointer;
+    color: #fff; background: var(--accent);
+    box-shadow: 0 0 0 1px rgba(94,106,210,0.5), 0 4px 16px rgba(94,106,210,0.35),
+                inset 0 1px 0 0 rgba(255,255,255,0.15);
+    transition: transform 0.2s var(--ease-expo), box-shadow 0.2s, background 0.15s;
+    position: relative; overflow: hidden;
+  }
+  .save-btn::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .save-btn:hover {
+    background: var(--accent-bright);
+    box-shadow: 0 0 0 1px rgba(94,106,210,0.6), 0 8px 30px rgba(94,106,210,0.4),
+                inset 0 1px 0 0 rgba(255,255,255,0.2);
+  }
+  .save-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+  .save-btn .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ---- Success Overlay ---- */
+  .success-overlay {
+    position: fixed; inset: 0; z-index: 100;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(2,2,3,0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.3s var(--ease-expo);
+  }
+  .success-overlay.show { opacity: 1; pointer-events: auto; }
+  .success-check {
+    width: 72px; height: 72px; border-radius: 50%;
+    background: rgba(52,211,153,0.1); border: 1.5px solid rgba(52,211,153,0.25);
+    display: flex; align-items: center; justify-content: center;
+    transform: scale(0);
+    box-shadow: 0 0 60px var(--green-glow);
+  }
+  .success-overlay.show .success-check {
+    animation: successSnap 0.5s var(--ease-expo) forwards;
+  }
+  @keyframes successSnap {
+    0% { transform: scale(0); }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+  .success-check svg { width: 30px; height: 30px; color: var(--green); }
+  .success-text {
+    margin-top: 16px; font-size: 14px; font-weight: 500;
+    color: var(--fg-muted); text-align: center;
+    opacity: 0; transform: translateY(10px);
+    transition: all 0.3s var(--ease-expo) 0.15s;
+  }
+  .success-overlay.show .success-text { opacity: 1; transform: translateY(0); }
+  .success-inner { display: flex; flex-direction: column; align-items: center; }
+
+  /* ---- Recent ---- */
+  .recent { margin-top: 28px; }
+  .recent-header {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--fg-muted);
+    margin-bottom: 12px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .recent-header::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--border) 0%, transparent 100%);
+  }
+
+  .entry {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    margin-bottom: 6px;
+    opacity: 0; transform: translateY(15px);
+    transition: opacity 0.4s var(--ease-expo), transform 0.4s var(--ease-expo), background 0.2s;
+  }
+  .entry.visible { opacity: 1; transform: translateY(0); }
+  .entry:hover { background: var(--surface-hover); }
+
+  .entry-icon {
+    width: 36px; height: 36px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .entry-icon svg { width: 16px; height: 16px; }
+
+  .entry-details { flex: 1; min-width: 0; }
+  .entry-cat { font-size: 13px; font-weight: 600; color: var(--fg); display: block; }
+  .entry-meta {
+    font-size: 11px; color: var(--fg-subtle);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .entry-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px; font-weight: 600; flex-shrink: 0;
+  }
+
+  /* ---- Toast ---- */
+  .toast {
+    position: fixed; bottom: 32px; left: 50%; z-index: 200;
+    transform: translateX(-50%) translateY(80px);
+    padding: 10px 20px; border-radius: 10px;
+    font-size: 13px; font-weight: 500; color: var(--fg);
+    background: var(--bg-elevated); border: 1px solid var(--border);
+    box-shadow: 0 0 0 1px var(--border), 0 8px 40px rgba(0,0,0,0.5);
+    transition: transform 0.35s var(--ease-expo), opacity 0.35s;
+    opacity: 0; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.error { border-color: rgba(239,68,68,0.3); }
+</style>
+</head>
+<body>
+
+<!-- Ambient Background -->
+<div class="ambient">
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="noise"></div>
+</div>
+
+<!-- Success Overlay -->
+<div class="success-overlay" id="successOverlay">
+  <div class="success-inner">
+    <div class="success-check">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"><polyline points="4 12 10 18 20 6"/></svg>
+    </div>
+    <div class="success-text" id="successText">Saved</div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- App -->
+<div class="app">
+
+  <!-- Header -->
+  <div class="header">
+    <div>
+      <h1>Expenses</h1>
+      <div class="month-row">
+        <span class="month-label">This month</span>
+        <span class="month-total" id="monthTotal">$0.00</span>
+      </div>
+    </div>
+    <button class="settings-btn" id="settingsToggle" aria-label="Settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- Settings -->
+  <div class="settings" id="settingsPanel">
+    <div class="settings-inner">
+      <label>Script URL</label>
+      <div class="url-row">
+        <input class="url-input" id="scriptUrlInput" placeholder="https://script.google.com/..." />
+        <button class="connect-btn" id="connectBtn">Link</button>
+      </div>
+      <div class="connected-dot" id="connectedBadge" style="display:none;">Connected</div>
+    </div>
+  </div>
+
+  <!-- Form -->
+  <div class="card">
+    <span class="form-label">Category</span>
+    <div class="chips" id="chips"></div>
+
+    <span class="form-label">Amount</span>
+    <div class="amount-wrap">
+      <span class="dollar">$</span>
+      <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" class="amount-input" id="amountInput">
+    </div>
+
+    <span class="form-label">Date</span>
+    <input type="date" class="form-input" id="dateInput">
+
+    <span class="form-label">Notes</span>
+    <input type="text" class="form-input" id="notesInput" placeholder="Optional note...">
+
+    <button class="save-btn" id="saveBtn">Save Expense</button>
+  </div>
+
+  <!-- Recent -->
+  <div class="recent" id="recentSection" style="display:none;">
+    <div class="recent-header">Recent</div>
+    <div id="entriesList"></div>
+  </div>
+
+</div>
+
+<script>
+// ---- SVG Icons: 1.5px stroke, square caps, zero gradients ----
+const ICONS = {
+  "Grocery": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
+  "Dining Out": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8Z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>',
+  "Transportation": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="1" y="3" width="15" height="13" rx="2"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>',
+  "Subscriptions": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>',
+  "Misc": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>'
+};
+
+const CATS = [
+  { id: "Grocery", color: "var(--green)", bg: "rgba(52,211,153,0.08)" },
+  { id: "Dining Out", color: "var(--orange)", bg: "rgba(251,146,60,0.08)" },
+  { id: "Transportation", color: "var(--blue)", bg: "rgba(96,165,250,0.08)" },
+  { id: "Subscriptions", color: "var(--purple)", bg: "rgba(167,139,250,0.08)" },
+  { id: "Misc", color: "var(--slate)", bg: "rgba(148,163,184,0.06)" }
+];
+
+let selected = "";
+let scriptUrl = "";
+let entries = [];
+let saving = false;
+
+// ---- Init ----
+function init() {
+  scriptUrl = localStorage.getItem("exp_url") || "";
+  entries = JSON.parse(localStorage.getItem("exp_entries") || "[]");
+  document.getElementById("scriptUrlInput").value = scriptUrl;
+  if (scriptUrl) document.getElementById("connectedBadge").style.display = "inline-flex";
+  else document.getElementById("settingsPanel").classList.add("open");
+  document.getElementById("dateInput").value = todayStr();
+  renderChips();
+  renderEntries();
+  updateTotal();
+}
+
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function fmtDate(s) { const p=s.split("-"); return p[2]+"/"+p[1]+"/"+p[0]; }
+
+// ---- Chips ----
+function renderChips() {
+  const el = document.getElementById("chips");
+  el.innerHTML = "";
+  CATS.forEach((cat, i) => {
+    const btn = document.createElement("button");
+    btn.className = "chip" + (selected === cat.id ? " active" : "");
+    btn.setAttribute("data-cat", cat.id);
+    btn.innerHTML = ICONS[cat.id] + "<span>" + cat.id + "</span>";
+    btn.onclick = () => { selected = cat.id; renderChips(); };
+    el.appendChild(btn);
+  });
+}
+
+// ---- Settings ----
+document.getElementById("settingsToggle").onclick = () =>
+  document.getElementById("settingsPanel").classList.toggle("open");
+
+document.getElementById("connectBtn").onclick = () => {
+  const url = document.getElementById("scriptUrlInput").value.trim();
+  if (!url) return;
+  scriptUrl = url;
+  localStorage.setItem("exp_url", url);
+  document.getElementById("connectedBadge").style.display = "inline-flex";
+  document.getElementById("settingsPanel").classList.remove("open");
+  showToast("Linked to spreadsheet");
+};
+
+// ---- Save (Wise "weighty" button) ----
+const saveBtn = document.getElementById("saveBtn");
+
+saveBtn.addEventListener("pointerdown", function(e) {
+  if (this.disabled) return;
+  this.style.transition = "transform 0.1s ease";
+  this.style.transform = "scale(0.96)";
+});
+
+saveBtn.addEventListener("pointerup", function(e) {
+  if (this.disabled) return;
+  this.style.transition = "transform 0.3s cubic-bezier(0.16, 1, 0.3, 1)";
+  this.style.transform = "scale(1.03)";
+  setTimeout(() => { this.style.transform = "scale(1)"; }, 180);
+});
+
+saveBtn.addEventListener("pointerleave", function(e) {
+  this.style.transition = "transform 0.2s cubic-bezier(0.16, 1, 0.3, 1)";
+  this.style.transform = "scale(1)";
+});
+
+saveBtn.onclick = async () => {
+  if (saving) return;
+  if (!selected) return showToast("Pick a category", true);
+  const amt = document.getElementById("amountInput").value;
+  if (!amt || isNaN(parseFloat(amt)) || parseFloat(amt) <= 0) return showToast("Enter an amount", true);
+  if (!scriptUrl) return showToast("Link your script URL first", true);
+
+  saving = true;
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<span class="spinner"></span>Saving...';
+
+  const expense = {
+    date: fmtDate(document.getElementById("dateInput").value),
+    category: selected,
+    amount: parseFloat(amt).toFixed(2),
+    notes: document.getElementById("notesInput").value.trim()
+  };
+
+  try {
+    await fetch(scriptUrl, {
+      method: "POST", mode: "no-cors",
+      headers: {"Content-Type":"text/plain"},
+      body: JSON.stringify(expense)
+    });
+
+    entries.unshift({...expense, timestamp: Date.now()});
+    entries = entries.slice(0, 50);
+    localStorage.setItem("exp_entries", JSON.stringify(entries));
+
+    // Success snap overlay
+    showSuccess(expense.category + " — $" + expense.amount);
+
+    // Reset
+    selected = "";
+    document.getElementById("amountInput").value = "";
+    document.getElementById("notesInput").value = "";
+    document.getElementById("dateInput").value = todayStr();
+    renderChips();
+    renderEntries();
+    updateTotal();
+  } catch(e) {
+    showToast("Connection failed", true);
+  } finally {
+    saving = false;
+    saveBtn.disabled = false;
+    saveBtn.textContent = "Save Expense";
+  }
+};
+
+// ---- Success Overlay ----
+function showSuccess(text) {
+  const overlay = document.getElementById("successOverlay");
+  document.getElementById("successText").textContent = text;
+  overlay.classList.add("show");
+  setTimeout(() => overlay.classList.remove("show"), 1500);
+}
+
+// ---- Toast ----
+function showToast(msg, isError) {
+  const t = document.getElementById("toast");
+  t.textContent = (isError ? "⚠ " : "✓ ") + msg;
+  t.className = "toast" + (isError ? " error" : "") + " show";
+  setTimeout(() => t.classList.remove("show"), 2500);
+}
+
+// ---- Entries (staggered entrance) ----
+function renderEntries() {
+  const sec = document.getElementById("recentSection");
+  const list = document.getElementById("entriesList");
+  if (!entries.length) { sec.style.display = "none"; return; }
+  sec.style.display = "block";
+  list.innerHTML = "";
+
+  entries.slice(0, 8).forEach((entry, i) => {
+    const cat = CATS.find(c => c.id === entry.category) || CATS[4];
+    const div = document.createElement("div");
+    div.className = "entry";
+    div.innerHTML =
+      '<div class="entry-icon" style="background:'+cat.bg+';color:'+cat.color+'">' + (ICONS[entry.category]||ICONS["Misc"]) + '</div>' +
+      '<div class="entry-details">' +
+        '<span class="entry-cat">'+entry.category+'</span>' +
+        '<span class="entry-meta">'+entry.date+(entry.notes?' · '+entry.notes:'')+'</span>' +
+      '</div>' +
+      '<span class="entry-amount" style="color:'+cat.color+'">$'+parseFloat(entry.amount).toFixed(2)+'</span>';
+    list.appendChild(div);
+    // Staggered settle: 0.05s delay per item
+    setTimeout(() => div.classList.add("visible"), 60 + i * 50);
+  });
+}
+
+// ---- Month Total ----
+function updateTotal() {
+  const now = new Date();
+  const total = entries
+    .filter(e => {
+      const p = e.date.split("/");
+      return parseInt(p[1]) === now.getMonth()+1 && parseInt(p[2]) === now.getFullYear();
+    })
+    .reduce((s,e) => s + parseFloat(e.amount), 0);
+  document.getElementById("monthTotal").textContent = "$" + total.toFixed(2);
+}
+
+init();
+
+// Register Service Worker for PWA
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
