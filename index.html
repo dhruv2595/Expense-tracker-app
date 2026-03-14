@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -36,8 +37,8 @@
     --blue-glow: rgba(96,165,250,0.2);
     --purple: #A78BFA;
     --purple-glow: rgba(167,139,250,0.2);
-    --slate: #94A3B8;
-    --slate-glow: rgba(148,163,184,0.15);
+    --slate: #F472B6;
+    --slate-glow: rgba(244,114,182,0.2);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -180,7 +181,7 @@
     background: linear-gradient(180deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 100%);
     border: 1px solid var(--border); border-radius: 20px; padding: 20px;
     box-shadow: 0 0 0 1px var(--border), 0 4px 30px rgba(0,0,0,0.3), 0 0 60px rgba(0,0,0,0.15);
-    position: relative; overflow: hidden;
+    position: relative; overflow: visible;
   }
   .card::before {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
@@ -225,30 +226,48 @@
     background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.3); color: var(--purple);
   }
   .chip[data-cat="Misc"].active {
-    background: rgba(148,163,184,0.12); border-color: rgba(148,163,184,0.25); color: var(--slate);
+    background: rgba(244,114,182,0.15); border-color: rgba(244,114,182,0.3); color: var(--slate);
   }
 
-  /* ---- Amount ---- */
+  /* ---- Amount (Wise-style dynamic) ---- */
   .amount-wrap {
     display: flex; align-items: center;
     background: var(--bg-base); border: 1px solid var(--border);
     border-radius: 12px; padding: 4px 16px;
-    transition: border-color 0.2s, box-shadow 0.2s;
+    transition: border-color 0.3s var(--ease-expo), box-shadow 0.3s var(--ease-expo), padding 0.35s var(--ease-expo);
   }
   .amount-wrap:focus-within {
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-glow);
+    padding: 10px 16px;
   }
   .dollar {
     font-family: 'JetBrains Mono', monospace;
     font-size: 24px; font-weight: 500; color: var(--fg-subtle); margin-right: 4px;
+    transition: font-size 0.35s var(--ease-expo), color 0.3s var(--ease-expo);
+  }
+  .amount-wrap:focus-within .dollar {
+    font-size: 36px; color: var(--fg-muted);
+  }
+  .amount-wrap.has-value .dollar {
+    font-size: 36px; color: var(--fg-muted);
   }
   .amount-input {
     flex: 1; border: none; background: transparent;
     font-family: 'JetBrains Mono', monospace;
-    font-size: 32px; font-weight: 600; padding: 8px 0;
+    font-size: 24px; font-weight: 600; padding: 8px 0;
     outline: none; color: var(--fg); width: 100%;
     letter-spacing: -0.02em;
+    transition: font-size 0.35s var(--ease-expo);
+  }
+  .amount-wrap:focus-within .amount-input {
+    font-size: 40px;
+  }
+  .amount-wrap.has-value .amount-input {
+    font-size: 40px;
+  }
+  .amount-wrap.has-value {
+    padding: 10px 16px;
   }
   .amount-input::placeholder { color: var(--fg-subtle); opacity: 0.4; }
   /* Remove number spinners */
@@ -492,7 +511,7 @@ const CATS = [
   { id: "Dining Out", color: "var(--orange)", bg: "rgba(251,146,60,0.08)" },
   { id: "Transportation", color: "var(--blue)", bg: "rgba(96,165,250,0.08)" },
   { id: "Subscriptions", color: "var(--purple)", bg: "rgba(167,139,250,0.08)" },
-  { id: "Misc", color: "var(--slate)", bg: "rgba(148,163,184,0.06)" }
+  { id: "Misc", color: "var(--slate)", bg: "rgba(244,114,182,0.08)" }
 ];
 
 let selected = "";
@@ -517,7 +536,11 @@ function todayStr() {
   const d = new Date();
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
 }
-function fmtDate(s) { const p=s.split("-"); return p[2]+"/"+p[1]+"/"+p[0]; }
+function fmtDate(s) {
+  const p = s.split("-");
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  return p[2] + ' ' + months[parseInt(p[1])-1] + ', ' + p[0];
+}
 
 // ---- Chips ----
 function renderChips() {
@@ -546,6 +569,19 @@ document.getElementById("connectBtn").onclick = () => {
   document.getElementById("settingsPanel").classList.remove("open");
   showToast("Linked to spreadsheet");
 };
+
+// ---- Amount dynamic scaling ----
+const amountInput = document.getElementById("amountInput");
+const amountWrap = amountInput.closest(".amount-wrap");
+function updateAmountState() {
+  if (amountInput.value && parseFloat(amountInput.value) > 0) {
+    amountWrap.classList.add("has-value");
+  } else {
+    amountWrap.classList.remove("has-value");
+  }
+}
+amountInput.addEventListener("input", updateAmountState);
+amountInput.addEventListener("blur", updateAmountState);
 
 // ---- Save (Wise "weighty" button) ----
 const saveBtn = document.getElementById("saveBtn");
@@ -661,10 +697,13 @@ function renderEntries() {
 // ---- Month Total ----
 function updateTotal() {
   const now = new Date();
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const total = entries
     .filter(e => {
-      const p = e.date.split("/");
-      return parseInt(p[1]) === now.getMonth()+1 && parseInt(p[2]) === now.getFullYear();
+      const parts = e.date.replace(',','').split(' ');
+      const m = months.indexOf(parts[1]) + 1;
+      const y = parseInt(parts[2]);
+      return m === now.getMonth()+1 && y === now.getFullYear();
     })
     .reduce((s,e) => s + parseFloat(e.amount), 0);
   document.getElementById("monthTotal").textContent = "$" + total.toFixed(2);
