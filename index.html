@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -418,6 +419,131 @@
     font-size: 14px; font-weight: 600; flex-shrink: 0;
   }
 
+  /* ---- Stacked Card Group ---- */
+  .entry-group {
+    position: relative;
+    margin-bottom: 6px;
+    opacity: 0; transform: translateY(15px);
+    transition: opacity 0.4s var(--ease-expo), transform 0.4s var(--ease-expo);
+  }
+  .entry-group.visible { opacity: 1; transform: translateY(0); }
+
+  /* The fake stacked cards behind the front card */
+  .stack-layer {
+    position: absolute;
+    left: 0; right: 0;
+    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    pointer-events: none;
+    transition: all 0.4s var(--ease-expo);
+  }
+  .stack-layer-1 {
+    top: 6px;
+    height: calc(100% - 4px);
+    opacity: 0.45;
+    transform: scale(0.97);
+    z-index: -1;
+  }
+  .stack-layer-2 {
+    top: 11px;
+    height: calc(100% - 8px);
+    opacity: 0.2;
+    transform: scale(0.94);
+    z-index: -2;
+  }
+
+  /* Hide stack layers when expanded */
+  .entry-group.expanded .stack-layer {
+    opacity: 0;
+    top: 0;
+    transform: scale(1);
+  }
+
+  /* Front card of a group (summary) */
+  .entry-group-front {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 14px; border-radius: 14px;
+    background: var(--surface); border: 1px solid var(--border);
+    cursor: pointer; position: relative; z-index: 1;
+    transition: background 0.2s var(--ease-expo), border-color 0.2s var(--ease-expo), transform 0.15s var(--ease-expo);
+    -webkit-user-select: none; user-select: none;
+  }
+  .entry-group-front:hover { background: var(--surface-hover); }
+  .entry-group-front:active { transform: scale(0.98); }
+
+  .entry-group.expanded .entry-group-front {
+    border-color: var(--border-hover);
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom-color: transparent;
+  }
+
+  .group-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500;
+    color: var(--fg-subtle);
+    margin-left: 2px;
+  }
+
+  .group-chevron {
+    width: 14px; height: 14px; flex-shrink: 0;
+    color: var(--fg-subtle);
+    transition: transform 0.35s var(--ease-expo);
+    margin-left: 4px;
+  }
+  .entry-group.expanded .group-chevron {
+    transform: rotate(180deg);
+  }
+
+  /* Accordion body */
+  .group-accordion {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s var(--ease-expo);
+    position: relative; z-index: 1;
+  }
+  .group-accordion-inner {
+    background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.015) 100%);
+    border: 1px solid var(--border-hover);
+    border-top: none;
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+    padding: 2px 0;
+  }
+
+  /* Individual items inside the accordion */
+  .group-child {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+    opacity: 0; transform: translateY(8px);
+    transition: opacity 0.3s var(--ease-expo), transform 0.3s var(--ease-expo);
+    position: relative;
+  }
+  .group-child.visible { opacity: 1; transform: translateY(0); }
+  .group-child + .group-child::before {
+    content: '';
+    position: absolute; top: 0; left: 48px; right: 14px;
+    height: 1px;
+    background: var(--border);
+  }
+  .group-child-details { flex: 1; min-width: 0; }
+  .group-child-date {
+    font-size: 12px; font-weight: 500; color: var(--fg);
+  }
+  .group-child-notes {
+    font-size: 11px; color: var(--fg-subtle);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .group-child-amount {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; font-weight: 600; flex-shrink: 0;
+  }
+  .group-child-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+    margin-left: 4px;
+  }
+
   /* ---- Toast ---- */
   .toast {
     position: fixed; bottom: 32px; left: 50%; z-index: 200;
@@ -704,7 +830,54 @@ function showToast(msg, isError) {
   setTimeout(() => t.classList.remove("show"), 2500);
 }
 
-// ---- Entries (staggered entrance) ----
+// ---- Entries (staggered entrance + grouped stacking) ----
+
+// Chevron SVG for expand/collapse
+const CHEVRON_SVG = '<svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><polyline points="6 9 12 15 18 9"/></svg>';
+
+function groupEntries(list) {
+  // Group by category, preserving insertion order of first appearance
+  const groups = {};
+  const order = [];
+  list.forEach(entry => {
+    const key = entry.category;
+    if (!groups[key]) { groups[key] = []; order.push(key); }
+    groups[key].push(entry);
+  });
+  // Build render list: groups with 3+ become stacked, rest stay individual
+  const result = [];
+  order.forEach(key => {
+    const items = groups[key];
+    if (items.length >= 3) {
+      result.push({ type: 'group', category: key, items: items });
+    } else {
+      items.forEach(item => result.push({ type: 'single', entry: item }));
+    }
+  });
+  return result;
+}
+
+function toggleGroup(groupEl) {
+  const isExpanded = groupEl.classList.contains('expanded');
+  const accordion = groupEl.querySelector('.group-accordion');
+  const children = accordion.querySelectorAll('.group-child');
+
+  if (isExpanded) {
+    // Collapse: hide children first, then shrink
+    children.forEach(c => c.classList.remove('visible'));
+    accordion.style.maxHeight = '0px';
+    groupEl.classList.remove('expanded');
+  } else {
+    // Expand: grow accordion, then stagger children in
+    groupEl.classList.add('expanded');
+    accordion.style.maxHeight = accordion.scrollHeight + 'px';
+    children.forEach((c, i) => {
+      c.classList.remove('visible');
+      setTimeout(() => c.classList.add('visible'), 80 + i * 50);
+    });
+  }
+}
+
 function renderEntries() {
   const sec = document.getElementById("recentSection");
   const list = document.getElementById("entriesList");
@@ -712,20 +885,86 @@ function renderEntries() {
   sec.style.display = "block";
   list.innerHTML = "";
 
-  entries.slice(0, 8).forEach((entry, i) => {
-    const cat = CATS.find(c => c.id === entry.category) || CATS[4];
-    const div = document.createElement("div");
-    div.className = "entry";
-    div.innerHTML =
-      '<div class="entry-icon" style="background:'+cat.bg+';color:'+cat.color+'">' + (ICONS[entry.category]||ICONS["Misc"]) + '</div>' +
-      '<div class="entry-details">' +
-        '<span class="entry-cat">'+entry.category+'</span>' +
-        '<span class="entry-meta">'+entry.date+(entry.notes?' · '+entry.notes:'')+'</span>' +
-      '</div>' +
-      '<span class="entry-amount" style="color:'+cat.color+'">$'+parseFloat(entry.amount).toFixed(2)+'</span>';
-    list.appendChild(div);
-    // Staggered settle: 0.05s delay per item
-    setTimeout(() => div.classList.add("visible"), 60 + i * 50);
+  const visible = entries.slice(0, 20);
+  const grouped = groupEntries(visible);
+  let staggerIndex = 0;
+
+  grouped.forEach(item => {
+    if (item.type === 'single') {
+      // Render a normal individual entry card (unchanged from before)
+      const entry = item.entry;
+      const cat = CATS.find(c => c.id === entry.category) || CATS[4];
+      const div = document.createElement("div");
+      div.className = "entry";
+      div.innerHTML =
+        '<div class="entry-icon" style="background:'+cat.bg+';color:'+cat.color+'">' + (ICONS[entry.category]||ICONS["Misc"]) + '</div>' +
+        '<div class="entry-details">' +
+          '<span class="entry-cat">'+entry.category+'</span>' +
+          '<span class="entry-meta">'+entry.date+(entry.notes?' · '+entry.notes:'')+'</span>' +
+        '</div>' +
+        '<span class="entry-amount" style="color:'+cat.color+'">$'+parseFloat(entry.amount).toFixed(2)+'</span>';
+      list.appendChild(div);
+      const idx = staggerIndex++;
+      setTimeout(() => div.classList.add("visible"), 60 + idx * 50);
+
+    } else {
+      // Render a stacked group card
+      const items = item.items;
+      const cat = CATS.find(c => c.id === item.category) || CATS[4];
+      const total = items.reduce((s, e) => s + parseFloat(e.amount), 0);
+      const count = items.length;
+
+      const groupEl = document.createElement("div");
+      groupEl.className = "entry-group";
+
+      // Stack layers (the subtle cards behind)
+      const stackCount = Math.min(count - 1, 2);
+      for (let s = stackCount; s >= 1; s--) {
+        const layer = document.createElement("div");
+        layer.className = "stack-layer stack-layer-" + s;
+        groupEl.appendChild(layer);
+      }
+
+      // Front card
+      const front = document.createElement("div");
+      front.className = "entry-group-front";
+      front.innerHTML =
+        '<div class="entry-icon" style="background:'+cat.bg+';color:'+cat.color+'">' + (ICONS[item.category]||ICONS["Misc"]) + '</div>' +
+        '<div class="entry-details">' +
+          '<span class="entry-cat">'+item.category+'</span>' +
+          '<span class="group-count">'+count+' expenses</span>' +
+        '</div>' +
+        '<span class="entry-amount" style="color:'+cat.color+'">$'+total.toFixed(2)+'</span>' +
+        CHEVRON_SVG;
+      front.addEventListener('click', () => toggleGroup(groupEl));
+      groupEl.appendChild(front);
+
+      // Accordion body with individual items
+      const accordion = document.createElement("div");
+      accordion.className = "group-accordion";
+      const accordionInner = document.createElement("div");
+      accordionInner.className = "group-accordion-inner";
+
+      items.forEach(entry => {
+        const child = document.createElement("div");
+        child.className = "group-child";
+        child.innerHTML =
+          '<div class="group-child-dot" style="background:'+cat.color+';opacity:0.5;"></div>' +
+          '<div class="group-child-details">' +
+            '<span class="group-child-date">'+entry.date+'</span>' +
+            (entry.notes ? '<span class="group-child-notes">'+entry.notes+'</span>' : '') +
+          '</div>' +
+          '<span class="group-child-amount" style="color:'+cat.color+'">$'+parseFloat(entry.amount).toFixed(2)+'</span>';
+        accordionInner.appendChild(child);
+      });
+
+      accordion.appendChild(accordionInner);
+      groupEl.appendChild(accordion);
+      list.appendChild(groupEl);
+
+      const idx = staggerIndex++;
+      setTimeout(() => groupEl.classList.add("visible"), 60 + idx * 50);
+    }
   });
 }
 
