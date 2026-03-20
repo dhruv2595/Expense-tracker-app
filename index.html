@@ -407,6 +407,13 @@
     width: 160px;
     display: flex; align-items: stretch; justify-content: stretch;
     z-index: 0;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+  }
+  .swipe-container.swiping .swipe-actions {
+    opacity: 1;
+    pointer-events: auto;
   }
   .swipe-action-btn {
     flex: 1;
@@ -1337,10 +1344,24 @@ document.getElementById("editConfirmBtn").onclick = async () => {
 // ==================================================================
 
 function closeAllSwipes() {
+  // Reset the tracked active swipe
   if (activeSwipe) {
+    activeSwipe.style.transition = "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
+    activeSwipe.style.transform = "translateX(0)";
     activeSwipe.classList.remove("swiped");
+    if (activeSwipe.parentElement) activeSwipe.parentElement.classList.remove("swiping");
     activeSwipe = null;
   }
+  // Catch any orphaned swiped elements (safety net)
+  document.querySelectorAll(".swipe-content.swiped").forEach(el => {
+    el.style.transition = "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
+    el.style.transform = "translateX(0)";
+    el.classList.remove("swiped");
+    if (el.parentElement) el.parentElement.classList.remove("swiping");
+  });
+  document.querySelectorAll(".swipe-container.swiping").forEach(el => {
+    el.classList.remove("swiping");
+  });
 }
 
 function setupSwipe(swipeContent) {
@@ -1348,6 +1369,7 @@ function setupSwipe(swipeContent) {
   let currentX = 0;
   let isDragging = false;
   const THRESHOLD = 60;   // px to trigger swipe-open
+  const container = swipeContent.parentElement;
 
   swipeContent.addEventListener("touchstart", (e) => {
     startX = e.touches[0].clientX;
@@ -1363,13 +1385,19 @@ function setupSwipe(swipeContent) {
 
     // Only allow left swipe (negative dx), cap at -160
     if (dx < 0) {
+      // Reveal actions as soon as user starts swiping
+      container.classList.add("swiping");
+
       const offset = Math.max(dx, -160);
       swipeContent.style.transform = "translateX(" + offset + "px)";
 
       // If this is a different element than the currently swiped one, close the old one
       if (activeSwipe && activeSwipe !== swipeContent) {
+        activeSwipe.style.transition = "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
+        activeSwipe.style.transform = "translateX(0)";
         activeSwipe.classList.remove("swiped");
-        activeSwipe.style.transform = "";
+        if (activeSwipe.parentElement) activeSwipe.parentElement.classList.remove("swiping");
+        activeSwipe = null;
       }
     }
   }, { passive: true });
@@ -1384,11 +1412,18 @@ function setupSwipe(swipeContent) {
       // Snap open
       swipeContent.style.transform = "translateX(-160px)";
       swipeContent.classList.add("swiped");
+      container.classList.add("swiping");
       activeSwipe = swipeContent;
     } else {
       // Snap closed
       swipeContent.style.transform = "translateX(0)";
       swipeContent.classList.remove("swiped");
+      // Hide actions after close animation
+      setTimeout(() => {
+        if (!swipeContent.classList.contains("swiped")) {
+          container.classList.remove("swiping");
+        }
+      }, 350);
       if (activeSwipe === swipeContent) activeSwipe = null;
     }
   });
@@ -1507,6 +1542,7 @@ function groupEntries(list) {
 }
 
 function toggleGroup(groupEl) {
+  closeAllSwipes();
   const isExpanded = groupEl.classList.contains('expanded');
   const accordion = groupEl.querySelector('.group-accordion');
   const children = accordion.querySelectorAll('.group-child');
