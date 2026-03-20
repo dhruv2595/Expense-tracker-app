@@ -796,6 +796,47 @@
     vertical-align: middle; margin-right: 6px;
   }
 
+  /* ---- Show More / Less ---- */
+  .show-more-btn {
+    width: 100%;
+    padding: 12px;
+    margin-top: 2px;
+    border: 1px dashed var(--border);
+    border-radius: 12px;
+    background: transparent;
+    color: var(--fg-muted);
+    font-size: 13px; font-weight: 500;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    transition: all 0.25s var(--ease-expo);
+    opacity: 0; transform: translateY(10px);
+  }
+  .show-more-btn.visible {
+    opacity: 1; transform: translateY(0);
+  }
+  .show-more-btn:active { transform: scale(0.98); }
+  .show-more-btn:hover {
+    border-color: var(--border-hover);
+    color: var(--fg);
+    background: var(--surface);
+  }
+  .show-more-btn svg {
+    width: 14px; height: 14px;
+    transition: transform 0.3s var(--ease-expo);
+  }
+  .show-more-btn.expanded svg {
+    transform: rotate(180deg);
+  }
+  .show-more-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    color: var(--fg-subtle);
+    background: var(--surface);
+    padding: 2px 7px;
+    border-radius: 6px;
+  }
+
   /* ---- Toast ---- */
   .toast {
     position: fixed; bottom: 32px; left: 50%; z-index: 200;
@@ -1521,6 +1562,9 @@ function createSwipeContainer(contentEl, entry) {
   return container;
 }
 
+const VISIBLE_LIMIT = 4;   // visual items to show before "show more"
+let showingAll = false;
+
 function renderEntries() {
   const sec = document.getElementById("recentSection");
   const list = document.getElementById("entriesList");
@@ -1529,11 +1573,24 @@ function renderEntries() {
   list.innerHTML = "";
   activeSwipe = null;
 
-  const visible = entries.slice(0, 20);
+  const visible = entries.slice(0, 50);
   const grouped = groupEntries(visible);
+  const totalItems = grouped.length;
+  const limit = showingAll ? totalItems : VISIBLE_LIMIT;
+  const itemsToRender = grouped.slice(0, limit);
+  const hiddenCount = totalItems - VISIBLE_LIMIT;
+
+  // Count actual individual expenses hidden (for the label)
+  let hiddenExpenseCount = 0;
+  if (!showingAll && totalItems > VISIBLE_LIMIT) {
+    grouped.slice(VISIBLE_LIMIT).forEach(item => {
+      hiddenExpenseCount += item.type === 'group' ? item.items.length : 1;
+    });
+  }
+
   let staggerIndex = 0;
 
-  grouped.forEach(item => {
+  itemsToRender.forEach(item => {
     if (item.type === 'single') {
       const entry = item.entry;
       const cat = CATS.find(c => c.id === entry.category) || CATS[4];
@@ -1625,6 +1682,28 @@ function renderEntries() {
       setTimeout(() => groupEl.classList.add("visible"), 60 + idx * 50);
     }
   });
+
+  // Show More / Show Less button
+  if (totalItems > VISIBLE_LIMIT) {
+    const chevronDown = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><polyline points="6 9 12 15 18 9"/></svg>';
+    const btn = document.createElement("button");
+    btn.className = "show-more-btn" + (showingAll ? " expanded" : "");
+
+    if (showingAll) {
+      btn.innerHTML = 'Show less ' + chevronDown;
+    } else {
+      btn.innerHTML = 'Show more <span class="show-more-count">' + hiddenExpenseCount + '</span>' + chevronDown;
+    }
+
+    btn.onclick = () => {
+      showingAll = !showingAll;
+      renderEntries();
+    };
+
+    list.appendChild(btn);
+    const si = staggerIndex;
+    setTimeout(() => btn.classList.add("visible"), 60 + si * 50);
+  }
 }
 
 // ---- Month Total ----
