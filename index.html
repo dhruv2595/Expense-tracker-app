@@ -1,5 +1,7 @@
 
 
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -40,6 +42,9 @@
     --purple-glow: rgba(167,139,250,0.2);
     --slate: #F472B6;
     --slate-glow: rgba(244,114,182,0.2);
+    --red: #EF4444;
+    --red-glow: rgba(239,68,68,0.3);
+    --red-bg: rgba(239,68,68,0.12);
   }
 
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -271,7 +276,6 @@
     padding: 10px 16px;
   }
   .amount-input::placeholder { color: var(--fg-subtle); opacity: 0.4; }
-  /* Remove number spinners */
   .amount-input::-webkit-inner-spin-button,
   .amount-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
   .amount-input { -moz-appearance: textfield; }
@@ -291,7 +295,7 @@
   }
   .form-input::placeholder { color: var(--fg-subtle); }
 
-  /* ---- Date Picker (custom) ---- */
+  /* ---- Date Picker ---- */
   .date-wrap {
     position: relative; display: flex; align-items: center;
     background: var(--bg-base); border: 1px solid var(--border);
@@ -390,16 +394,66 @@
     background: linear-gradient(90deg, var(--border) 0%, transparent 100%);
   }
 
+  /* ---- Swipe Container (iOS-style swipe-to-delete) ---- */
+  .swipe-container {
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+    margin-bottom: 6px;
+  }
+  .swipe-actions {
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 160px;
+    display: flex; align-items: stretch; justify-content: stretch;
+    z-index: 0;
+  }
+  .swipe-action-btn {
+    flex: 1;
+    background: none; border: none;
+    color: #fff; font-size: 11px; font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  }
+  .swipe-action-btn svg {
+    width: 18px; height: 18px;
+  }
+  .swipe-action-edit {
+    background: var(--accent);
+    border-radius: 0;
+  }
+  .swipe-action-delete {
+    background: var(--red);
+    border-radius: 0 14px 14px 0;
+  }
+  /* Inside accordion, no border-radius on delete either */
+  .group-accordion .swipe-action-delete {
+    border-radius: 0;
+  }
+  .swipe-content {
+    position: relative;
+    z-index: 1;
+    transition: transform 0.35s var(--ease-expo);
+    touch-action: pan-y;
+  }
+  .swipe-content.swiped {
+    transform: translateX(-160px);
+  }
+
   .entry {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 14px; border-radius: 14px;
     background: var(--surface); border: 1px solid var(--border);
-    margin-bottom: 6px;
     opacity: 0; transform: translateY(15px);
     transition: opacity 0.4s var(--ease-expo), transform 0.4s var(--ease-expo), background 0.2s;
   }
   .entry.visible { opacity: 1; transform: translateY(0); }
   .entry:hover { background: var(--surface-hover); }
+
+  /* When entry is inside swipe-container, use opaque bg so red area doesn't bleed through */
+  .swipe-container .entry { margin-bottom: 0; background: #0d0d10; }
+  .swipe-container .entry:hover { background: #111116; }
 
   .entry-icon {
     width: 36px; height: 36px; border-radius: 10px;
@@ -419,6 +473,125 @@
     font-size: 14px; font-weight: 600; flex-shrink: 0;
   }
 
+  /* ---- Edit Amount Modal ---- */
+  .edit-overlay {
+    position: fixed; inset: 0; z-index: 150;
+    display: flex; align-items: flex-end; justify-content: center;
+    background: rgba(2,2,3,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s var(--ease-expo);
+    padding: 20px 16px;
+  }
+  .edit-overlay.show { opacity: 1; pointer-events: auto; }
+  .edit-overlay.show .edit-card {
+    transform: translateY(0);
+  }
+  .edit-card {
+    width: 100%; max-width: 420px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 20px 20px;
+    box-shadow: 0 0 0 1px var(--border), 0 16px 60px rgba(0,0,0,0.6);
+    transform: translateY(30px);
+    transition: transform 0.35s var(--ease-expo);
+  }
+  .edit-header {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 20px;
+  }
+  .edit-header-icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .edit-header-icon svg { width: 16px; height: 16px; }
+  .edit-header-info { flex: 1; min-width: 0; }
+  .edit-header-cat { font-size: 14px; font-weight: 600; color: var(--fg); display: block; }
+  .edit-header-meta { font-size: 12px; color: var(--fg-muted); display: block; margin-top: 2px; }
+  .edit-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 500; text-transform: uppercase;
+    letter-spacing: 0.1em; color: var(--fg-muted);
+    display: block; margin-bottom: 10px;
+  }
+  .edit-amount-wrap {
+    display: flex; align-items: center;
+    background: var(--bg-base); border: 1px solid var(--border);
+    border-radius: 12px; padding: 4px 16px;
+    transition: border-color 0.3s var(--ease-expo), box-shadow 0.3s var(--ease-expo), padding 0.35s var(--ease-expo);
+  }
+  .edit-amount-wrap:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-glow);
+    padding: 10px 16px;
+  }
+  .edit-amount-wrap.has-value {
+    padding: 10px 16px;
+  }
+  .edit-dollar {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; font-weight: 500; color: var(--fg-subtle); margin-right: 4px;
+    transition: font-size 0.35s var(--ease-expo), color 0.3s var(--ease-expo);
+  }
+  .edit-amount-wrap:focus-within .edit-dollar,
+  .edit-amount-wrap.has-value .edit-dollar {
+    font-size: 36px; color: var(--fg-muted);
+  }
+  .edit-amount-input {
+    flex: 1; border: none; background: transparent;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px; font-weight: 600; padding: 8px 0;
+    outline: none; color: var(--fg); width: 100%;
+    letter-spacing: -0.02em;
+    transition: font-size 0.35s var(--ease-expo);
+  }
+  .edit-amount-wrap:focus-within .edit-amount-input,
+  .edit-amount-wrap.has-value .edit-amount-input {
+    font-size: 40px;
+  }
+  .edit-amount-input::placeholder { color: var(--fg-subtle); opacity: 0.4; }
+  .edit-amount-input::-webkit-inner-spin-button,
+  .edit-amount-input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+  .edit-amount-input { -moz-appearance: textfield; }
+
+  .edit-actions {
+    display: flex; gap: 10px;
+    margin-top: 20px;
+  }
+  .edit-cancel-btn, .edit-confirm-btn {
+    flex: 1; padding: 13px;
+    border-radius: 12px; border: none;
+    font-size: 14px; font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer; transition: all 0.15s var(--ease-expo);
+  }
+  .edit-cancel-btn {
+    background: var(--surface); color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .edit-cancel-btn:active { transform: scale(0.97); }
+  .edit-confirm-btn {
+    background: var(--accent); color: #fff;
+    box-shadow: 0 0 0 1px rgba(94,106,210,0.5), 0 4px 16px rgba(94,106,210,0.35);
+    position: relative; overflow: hidden;
+  }
+  .edit-confirm-btn::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 50%);
+    pointer-events: none;
+  }
+  .edit-confirm-btn:active { transform: scale(0.97); }
+  .edit-confirm-btn:disabled {
+    opacity: 0.35; cursor: not-allowed; transform: none !important;
+  }
+  .edit-confirm-btn .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+  }
+
   /* ---- Stacked Card Group ---- */
   .entry-group {
     position: relative;
@@ -429,7 +602,6 @@
   .entry-group.expanded { margin-bottom: 6px; }
   .entry-group.visible { opacity: 1; transform: translateY(0); }
 
-  /* The front card wrapper — stack layers position relative to this */
   .entry-group-front {
     display: flex; align-items: center; gap: 12px;
     padding: 12px 14px; border-radius: 14px;
@@ -448,7 +620,6 @@
     border-bottom-color: transparent;
   }
 
-  /* Stacked card strips peeking below the front card, narrowing inward */
   .stack-layer {
     position: absolute;
     left: 50%;
@@ -474,7 +645,6 @@
     z-index: 1;
   }
 
-  /* Hide stack layers when expanded */
   .entry-group.expanded .stack-layer {
     opacity: 0;
     height: 0;
@@ -514,21 +684,30 @@
     padding: 4px 0;
   }
 
-  /* Individual items inside the accordion */
+  /* Swipe container inside accordion */
+  .group-accordion .swipe-container {
+    border-radius: 0;
+    margin-bottom: 0;
+  }
+
   .group-child {
     display: flex; align-items: center; gap: 12px;
     padding: 10px 14px;
     opacity: 0; transform: translateY(8px);
     transition: opacity 0.3s var(--ease-expo), transform 0.3s var(--ease-expo);
     position: relative;
+    background: #0b0b0e;
   }
   .group-child.visible { opacity: 1; transform: translateY(0); }
-  .group-child + .group-child::before {
+
+  /* Separator lines between children — applied to the swipe container */
+  .group-accordion .swipe-container + .swipe-container .group-child::before {
     content: '';
     position: absolute; top: 0; left: 48px; right: 14px;
     height: 1px;
     background: var(--border);
   }
+
   .group-child-details { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .group-child-date {
     font-size: 12px; font-weight: 500; color: var(--fg); display: block;
@@ -544,6 +723,77 @@
   .group-child-dot {
     width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
     margin-left: 4px;
+  }
+
+  /* ---- Delete Confirmation Modal ---- */
+  .confirm-overlay {
+    position: fixed; inset: 0; z-index: 150;
+    display: flex; align-items: flex-end; justify-content: center;
+    background: rgba(2,2,3,0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.25s var(--ease-expo);
+    padding: 20px 16px;
+  }
+  .confirm-overlay.show { opacity: 1; pointer-events: auto; }
+  .confirm-overlay.show .confirm-card {
+    transform: translateY(0);
+  }
+  .confirm-card {
+    width: 100%; max-width: 420px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 24px 20px 20px;
+    box-shadow: 0 0 0 1px var(--border), 0 16px 60px rgba(0,0,0,0.6);
+    transform: translateY(30px);
+    transition: transform 0.35s var(--ease-expo);
+  }
+  .confirm-icon {
+    width: 48px; height: 48px; border-radius: 14px;
+    background: var(--red-bg);
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 16px;
+  }
+  .confirm-icon svg { width: 22px; height: 22px; color: var(--red); }
+  .confirm-title {
+    font-size: 16px; font-weight: 600; color: var(--fg);
+    margin-bottom: 6px;
+  }
+  .confirm-desc {
+    font-size: 13px; color: var(--fg-muted); line-height: 1.5;
+    margin-bottom: 20px;
+  }
+  .confirm-desc strong {
+    color: var(--fg); font-weight: 600;
+  }
+  .confirm-actions {
+    display: flex; gap: 10px;
+  }
+  .confirm-cancel-btn, .confirm-delete-btn {
+    flex: 1; padding: 13px;
+    border-radius: 12px; border: none;
+    font-size: 14px; font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer; transition: all 0.15s var(--ease-expo);
+  }
+  .confirm-cancel-btn {
+    background: var(--surface); color: var(--fg);
+    border: 1px solid var(--border);
+  }
+  .confirm-cancel-btn:active { transform: scale(0.97); }
+  .confirm-delete-btn {
+    background: var(--red); color: #fff;
+    box-shadow: 0 0 0 1px rgba(239,68,68,0.5), 0 4px 16px var(--red-glow);
+  }
+  .confirm-delete-btn:active { transform: scale(0.97); }
+  .confirm-delete-btn:disabled {
+    opacity: 0.5; cursor: not-allowed; transform: none !important;
+  }
+  .confirm-delete-btn .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.6s linear infinite;
+    vertical-align: middle; margin-right: 6px;
   }
 
   /* ---- Toast ---- */
@@ -581,8 +831,45 @@
   </div>
 </div>
 
+<!-- Delete Confirmation Modal -->
+<div class="confirm-overlay" id="confirmOverlay">
+  <div class="confirm-card">
+    <div class="confirm-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+    </div>
+    <div class="confirm-title">Delete forever?</div>
+    <div class="confirm-desc" id="confirmDesc">This expense will be permanently removed from your spreadsheet.</div>
+    <div class="confirm-actions">
+      <button class="confirm-cancel-btn" id="confirmCancelBtn">Cancel</button>
+      <button class="confirm-delete-btn" id="confirmDeleteBtn">Delete</button>
+    </div>
+  </div>
+</div>
+
 <!-- Toast -->
 <div class="toast" id="toast"></div>
+
+<!-- Edit Amount Modal -->
+<div class="edit-overlay" id="editOverlay">
+  <div class="edit-card">
+    <div class="edit-header">
+      <div class="edit-header-icon" id="editIcon"></div>
+      <div class="edit-header-info">
+        <span class="edit-header-cat" id="editCat"></span>
+        <span class="edit-header-meta" id="editMeta"></span>
+      </div>
+    </div>
+    <span class="edit-label">New Amount</span>
+    <div class="edit-amount-wrap" id="editAmountWrap">
+      <span class="edit-dollar">$</span>
+      <input type="number" inputmode="decimal" step="0.01" min="0" placeholder="0.00" class="edit-amount-input" id="editAmountInput">
+    </div>
+    <div class="edit-actions">
+      <button class="edit-cancel-btn" id="editCancelBtn">Cancel</button>
+      <button class="edit-confirm-btn" id="editConfirmBtn" disabled>Confirm</button>
+    </div>
+  </div>
+</div>
 
 <!-- App -->
 <div class="app">
@@ -649,7 +936,7 @@
 </div>
 
 <script>
-// ---- SVG Icons: 1.5px stroke, square caps, zero gradients ----
+// ---- SVG Icons ----
 const ICONS = {
   "Grocery": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>',
   "Dining Out": '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8Z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>',
@@ -670,6 +957,8 @@ let selected = "";
 let scriptUrl = "";
 let entries = [];
 let saving = false;
+let pendingDelete = null;    // entry to delete (set when confirm modal opens)
+let activeSwipe = null;      // currently swiped-open element
 
 // ---- Init ----
 function init() {
@@ -778,6 +1067,7 @@ saveBtn.onclick = async () => {
   saveBtn.innerHTML = '<span class="spinner"></span>Saving...';
 
   const expense = {
+    action: "add",
     date: fmtDate(document.getElementById("dateInput").value),
     category: selected,
     amount: parseFloat(amt).toFixed(2),
@@ -795,10 +1085,8 @@ saveBtn.onclick = async () => {
     entries = entries.slice(0, 50);
     localStorage.setItem("exp_entries", JSON.stringify(entries));
 
-    // Success snap overlay
     showSuccess(expense.category + " — $" + expense.amount);
 
-    // Reset
     selected = "";
     document.getElementById("amountInput").value = "";
     document.getElementById("notesInput").value = "";
@@ -832,13 +1120,332 @@ function showToast(msg, isError) {
   setTimeout(() => t.classList.remove("show"), 2500);
 }
 
-// ---- Entries (staggered entrance + grouped stacking) ----
+// ==================================================================
+//  VERIFICATION: GET expenses from spreadsheet to confirm changes
+// ==================================================================
 
-// Chevron SVG for expand/collapse
+async function fetchServerExpenses() {
+  // doGet returns JSON with { success, expenses }
+  // Apps Script web apps redirect — fetch follows by default
+  const resp = await fetch(scriptUrl, { redirect: "follow" });
+  const data = await resp.json();
+  if (data.success) return data.expenses;
+  throw new Error(data.error || "Unknown error");
+}
+
+// Check if an expense EXISTS in the server list
+function existsOnServer(serverList, entry) {
+  return serverList.some(s =>
+    s.date === entry.date &&
+    s.category === entry.category &&
+    parseFloat(s.amount).toFixed(2) === parseFloat(entry.amount).toFixed(2) &&
+    (s.notes || "") === (entry.notes || "")
+  );
+}
+
+// Retry-based verification: waits for Google to process, then checks
+async function verifyChange(checkFn, maxRetries) {
+  maxRetries = maxRetries || 3;
+  for (let i = 0; i < maxRetries; i++) {
+    await new Promise(r => setTimeout(r, 1800 + i * 1200));
+    try {
+      const serverList = await fetchServerExpenses();
+      if (checkFn(serverList)) return true;
+    } catch(e) {
+      // Retry
+    }
+  }
+  return false;
+}
+
+// ==================================================================
+//  EDIT AMOUNT (Modal)
+// ==================================================================
+
+let pendingEdit = null;      // entry being edited
+let editOriginalAmount = "";
+
+function openEditModal(entry) {
+  closeAllSwipes();
+  pendingEdit = entry;
+  editOriginalAmount = parseFloat(entry.amount).toFixed(2);
+
+  const cat = CATS.find(c => c.id === entry.category) || CATS[4];
+
+  // Populate header
+  document.getElementById("editIcon").innerHTML = (ICONS[entry.category] || ICONS["Misc"]);
+  document.getElementById("editIcon").style.background = cat.bg;
+  document.getElementById("editIcon").style.color = cat.color;
+  document.getElementById("editCat").textContent = entry.category;
+  document.getElementById("editMeta").textContent = entry.date + (entry.notes ? ' · ' + entry.notes : '');
+
+  // Set amount input
+  const input = document.getElementById("editAmountInput");
+  const wrap = document.getElementById("editAmountWrap");
+  input.value = editOriginalAmount;
+  wrap.classList.add("has-value");
+
+  // Reset confirm button state
+  const confirmBtn = document.getElementById("editConfirmBtn");
+  confirmBtn.disabled = true;
+  confirmBtn.textContent = "Confirm";
+
+  // Show modal
+  document.getElementById("editOverlay").classList.add("show");
+
+  // Focus after animation
+  setTimeout(() => { input.focus(); input.select(); }, 350);
+}
+
+// Dynamic amount scaling in edit modal
+document.getElementById("editAmountInput").addEventListener("input", function() {
+  const wrap = document.getElementById("editAmountWrap");
+  const confirmBtn = document.getElementById("editConfirmBtn");
+  const val = this.value;
+
+  if (val && parseFloat(val) > 0) {
+    wrap.classList.add("has-value");
+  } else {
+    wrap.classList.remove("has-value");
+  }
+
+  // Enable confirm only if value changed and is valid
+  const newAmt = parseFloat(val);
+  if (!isNaN(newAmt) && newAmt > 0 && newAmt.toFixed(2) !== editOriginalAmount) {
+    confirmBtn.disabled = false;
+  } else {
+    confirmBtn.disabled = true;
+  }
+});
+
+document.getElementById("editCancelBtn").onclick = () => {
+  pendingEdit = null;
+  document.getElementById("editOverlay").classList.remove("show");
+  closeAllSwipes();
+};
+
+// Close edit modal on overlay tap
+document.getElementById("editOverlay").addEventListener("click", (e) => {
+  if (e.target === document.getElementById("editOverlay")) {
+    document.getElementById("editCancelBtn").click();
+  }
+});
+
+document.getElementById("editConfirmBtn").onclick = async () => {
+  if (!pendingEdit) return;
+  const entry = pendingEdit;
+  const confirmBtn = document.getElementById("editConfirmBtn");
+  const input = document.getElementById("editAmountInput");
+
+  const newVal = parseFloat(input.value);
+  if (isNaN(newVal) || newVal <= 0) return;
+  const newAmount = newVal.toFixed(2);
+
+  confirmBtn.disabled = true;
+  confirmBtn.innerHTML = '<span class="spinner"></span>Saving...';
+  input.disabled = true;
+
+  try {
+    // POST the edit
+    await fetch(scriptUrl, {
+      method: "POST", mode: "no-cors",
+      headers: {"Content-Type":"text/plain"},
+      body: JSON.stringify({
+        action: "edit",
+        date: entry.date,
+        category: entry.category,
+        oldAmount: editOriginalAmount,
+        newAmount: newAmount,
+        notes: entry.notes || ""
+      })
+    });
+
+    // Verify via GET
+    const verified = await verifyChange(serverList => {
+      return existsOnServer(serverList, {
+        date: entry.date,
+        category: entry.category,
+        amount: newAmount,
+        notes: entry.notes || ""
+      });
+    });
+
+    if (verified) {
+      entry.amount = newAmount;
+      localStorage.setItem("exp_entries", JSON.stringify(entries));
+      renderEntries();
+      updateTotal();
+      showToast("Amount updated to $" + newAmount);
+    } else {
+      showToast("Could not verify update — check spreadsheet", true);
+    }
+  } catch(e) {
+    showToast("Connection failed", true);
+  } finally {
+    pendingEdit = null;
+    input.disabled = false;
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = "Confirm";
+    document.getElementById("editOverlay").classList.remove("show");
+    closeAllSwipes();
+  }
+};
+
+// ==================================================================
+//  SWIPE TO DELETE (iOS-style)
+// ==================================================================
+
+function closeAllSwipes() {
+  if (activeSwipe) {
+    activeSwipe.classList.remove("swiped");
+    activeSwipe = null;
+  }
+}
+
+function setupSwipe(swipeContent) {
+  let startX = 0;
+  let currentX = 0;
+  let isDragging = false;
+  const THRESHOLD = 60;   // px to trigger swipe-open
+
+  swipeContent.addEventListener("touchstart", (e) => {
+    startX = e.touches[0].clientX;
+    currentX = startX;
+    isDragging = true;
+    swipeContent.style.transition = "none";
+  }, { passive: true });
+
+  swipeContent.addEventListener("touchmove", (e) => {
+    if (!isDragging) return;
+    currentX = e.touches[0].clientX;
+    const dx = currentX - startX;
+
+    // Only allow left swipe (negative dx), cap at -160
+    if (dx < 0) {
+      const offset = Math.max(dx, -160);
+      swipeContent.style.transform = "translateX(" + offset + "px)";
+
+      // If this is a different element than the currently swiped one, close the old one
+      if (activeSwipe && activeSwipe !== swipeContent) {
+        activeSwipe.classList.remove("swiped");
+        activeSwipe.style.transform = "";
+      }
+    }
+  }, { passive: true });
+
+  swipeContent.addEventListener("touchend", (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    swipeContent.style.transition = "transform 0.35s cubic-bezier(0.16, 1, 0.3, 1)";
+    const dx = currentX - startX;
+
+    if (dx < -THRESHOLD) {
+      // Snap open
+      swipeContent.style.transform = "translateX(-160px)";
+      swipeContent.classList.add("swiped");
+      activeSwipe = swipeContent;
+    } else {
+      // Snap closed
+      swipeContent.style.transform = "translateX(0)";
+      swipeContent.classList.remove("swiped");
+      if (activeSwipe === swipeContent) activeSwipe = null;
+    }
+  });
+}
+
+// Close swipe when tapping elsewhere
+document.addEventListener("touchstart", (e) => {
+  if (activeSwipe && !activeSwipe.parentElement.contains(e.target)) {
+    closeAllSwipes();
+  }
+}, { passive: true });
+
+// ==================================================================
+//  DELETE WITH CONFIRMATION
+// ==================================================================
+
+function requestDelete(entry) {
+  pendingDelete = entry;
+  const cat = CATS.find(c => c.id === entry.category) || CATS[4];
+  document.getElementById("confirmDesc").innerHTML =
+    '<strong>' + entry.category + ' — $' + parseFloat(entry.amount).toFixed(2) + '</strong>' +
+    (entry.notes ? '  ·  ' + entry.notes : '') +
+    '<br>' + entry.date +
+    '<br><br>This will be permanently removed from your spreadsheet.';
+  document.getElementById("confirmOverlay").classList.add("show");
+}
+
+document.getElementById("confirmCancelBtn").onclick = () => {
+  pendingDelete = null;
+  document.getElementById("confirmOverlay").classList.remove("show");
+  closeAllSwipes();
+};
+
+// Close modal on overlay tap (outside card)
+document.getElementById("confirmOverlay").addEventListener("click", (e) => {
+  if (e.target === document.getElementById("confirmOverlay")) {
+    document.getElementById("confirmCancelBtn").click();
+  }
+});
+
+document.getElementById("confirmDeleteBtn").onclick = async () => {
+  if (!pendingDelete) return;
+  const entry = pendingDelete;
+  const delBtn = document.getElementById("confirmDeleteBtn");
+
+  delBtn.disabled = true;
+  delBtn.innerHTML = '<span class="spinner"></span>Deleting...';
+
+  try {
+    // POST the delete
+    await fetch(scriptUrl, {
+      method: "POST", mode: "no-cors",
+      headers: {"Content-Type":"text/plain"},
+      body: JSON.stringify({
+        action: "delete",
+        date: entry.date,
+        category: entry.category,
+        amount: parseFloat(entry.amount).toFixed(2),
+        notes: entry.notes || ""
+      })
+    });
+
+    // Verify via GET — the entry should no longer exist
+    const verified = await verifyChange(serverList => {
+      return !existsOnServer(serverList, entry);
+    });
+
+    if (verified) {
+      // Remove from local cache
+      const idx = entries.indexOf(entry);
+      if (idx > -1) entries.splice(idx, 1);
+      localStorage.setItem("exp_entries", JSON.stringify(entries));
+      renderEntries();
+      updateTotal();
+      showToast("Expense deleted");
+    } else {
+      showToast("Could not verify deletion — check spreadsheet", true);
+    }
+  } catch(e) {
+    showToast("Connection failed", true);
+  } finally {
+    pendingDelete = null;
+    delBtn.disabled = false;
+    delBtn.textContent = "Delete";
+    document.getElementById("confirmOverlay").classList.remove("show");
+    closeAllSwipes();
+  }
+};
+
+// ==================================================================
+//  RENDER ENTRIES (with swipe + edit support)
+// ==================================================================
+
 const CHEVRON_SVG = '<svg class="group-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><polyline points="6 9 12 15 18 9"/></svg>';
 
+const DELETE_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>';
+
 function groupEntries(list) {
-  // Group by category, preserving insertion order of first appearance
   const groups = {};
   const order = [];
   list.forEach(entry => {
@@ -846,7 +1453,6 @@ function groupEntries(list) {
     if (!groups[key]) { groups[key] = []; order.push(key); }
     groups[key].push(entry);
   });
-  // Build render list: groups with 3+ become stacked, rest stay individual
   const result = [];
   order.forEach(key => {
     const items = groups[key];
@@ -865,12 +1471,10 @@ function toggleGroup(groupEl) {
   const children = accordion.querySelectorAll('.group-child');
 
   if (isExpanded) {
-    // Collapse: hide children first, then shrink
     children.forEach(c => c.classList.remove('visible'));
     accordion.style.maxHeight = '0px';
     groupEl.classList.remove('expanded');
   } else {
-    // Expand: grow accordion, then stagger children in
     groupEl.classList.add('expanded');
     accordion.style.maxHeight = accordion.scrollHeight + 'px';
     children.forEach((c, i) => {
@@ -880,12 +1484,50 @@ function toggleGroup(groupEl) {
   }
 }
 
+const EDIT_ICON_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="square" stroke-linejoin="miter"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>';
+
+function createSwipeContainer(contentEl, entry) {
+  const container = document.createElement("div");
+  container.className = "swipe-container";
+
+  // Action buttons behind (Edit + Delete)
+  const actions = document.createElement("div");
+  actions.className = "swipe-actions";
+
+  const editBtn = document.createElement("button");
+  editBtn.className = "swipe-action-btn swipe-action-edit";
+  editBtn.innerHTML = EDIT_ICON_SVG + '<span>Edit</span>';
+  editBtn.onclick = (e) => {
+    e.stopPropagation();
+    openEditModal(entry);
+  };
+
+  const delBtn = document.createElement("button");
+  delBtn.className = "swipe-action-btn swipe-action-delete";
+  delBtn.innerHTML = DELETE_ICON_SVG + '<span>Delete</span>';
+  delBtn.onclick = (e) => {
+    e.stopPropagation();
+    requestDelete(entry);
+  };
+
+  actions.appendChild(editBtn);
+  actions.appendChild(delBtn);
+  container.appendChild(actions);
+  container.appendChild(contentEl);
+
+  // Setup swipe gesture
+  setupSwipe(contentEl);
+
+  return container;
+}
+
 function renderEntries() {
   const sec = document.getElementById("recentSection");
   const list = document.getElementById("entriesList");
   if (!entries.length) { sec.style.display = "none"; return; }
   sec.style.display = "block";
   list.innerHTML = "";
+  activeSwipe = null;
 
   const visible = entries.slice(0, 20);
   const grouped = groupEntries(visible);
@@ -893,24 +1535,33 @@ function renderEntries() {
 
   grouped.forEach(item => {
     if (item.type === 'single') {
-      // Render a normal individual entry card (unchanged from before)
       const entry = item.entry;
       const cat = CATS.find(c => c.id === entry.category) || CATS[4];
+
       const div = document.createElement("div");
-      div.className = "entry";
+      div.className = "entry swipe-content";
+
+      const amountSpan = document.createElement("span");
+      amountSpan.className = "entry-amount";
+      amountSpan.style.color = cat.color;
+      amountSpan.textContent = "$" + parseFloat(entry.amount).toFixed(2);
+
       div.innerHTML =
         '<div class="entry-icon" style="background:'+cat.bg+';color:'+cat.color+'">' + (ICONS[entry.category]||ICONS["Misc"]) + '</div>' +
         '<div class="entry-details">' +
           '<span class="entry-cat">'+entry.category+'</span>' +
           '<span class="entry-meta">'+entry.date+(entry.notes?' · '+entry.notes:'')+'</span>' +
-        '</div>' +
-        '<span class="entry-amount" style="color:'+cat.color+'">$'+parseFloat(entry.amount).toFixed(2)+'</span>';
-      list.appendChild(div);
+        '</div>';
+      div.appendChild(amountSpan);
+
+      const swipeContainer = createSwipeContainer(div, entry);
+      list.appendChild(swipeContainer);
+
       const idx = staggerIndex++;
       setTimeout(() => div.classList.add("visible"), 60 + idx * 50);
 
     } else {
-      // Render a stacked group card
+      // Stacked group
       const items = item.items;
       const cat = CATS.find(c => c.id === item.category) || CATS[4];
       const total = items.reduce((s, e) => s + parseFloat(e.amount), 0);
@@ -919,7 +1570,6 @@ function renderEntries() {
       const groupEl = document.createElement("div");
       groupEl.className = "entry-group";
 
-      // Stack layers (the subtle cards behind)
       const stackCount = Math.min(count - 1, 2);
       for (let s = stackCount; s >= 1; s--) {
         const layer = document.createElement("div");
@@ -927,7 +1577,6 @@ function renderEntries() {
         groupEl.appendChild(layer);
       }
 
-      // Front card
       const front = document.createElement("div");
       front.className = "entry-group-front";
       front.innerHTML =
@@ -941,7 +1590,7 @@ function renderEntries() {
       front.addEventListener('click', () => toggleGroup(groupEl));
       groupEl.appendChild(front);
 
-      // Accordion body with individual items
+      // Accordion with swipe-enabled children
       const accordion = document.createElement("div");
       accordion.className = "group-accordion";
       const accordionInner = document.createElement("div");
@@ -949,15 +1598,23 @@ function renderEntries() {
 
       items.forEach(entry => {
         const child = document.createElement("div");
-        child.className = "group-child";
+        child.className = "group-child swipe-content";
+
+        const childAmount = document.createElement("span");
+        childAmount.className = "group-child-amount";
+        childAmount.style.color = cat.color;
+        childAmount.textContent = "$" + parseFloat(entry.amount).toFixed(2);
+
         child.innerHTML =
           '<div class="group-child-dot" style="background:'+cat.color+';opacity:0.5;"></div>' +
           '<div class="group-child-details">' +
             '<span class="group-child-date">'+entry.date+'</span>' +
             (entry.notes ? '<span class="group-child-notes">'+entry.notes+'</span>' : '') +
-          '</div>' +
-          '<span class="group-child-amount" style="color:'+cat.color+'">$'+parseFloat(entry.amount).toFixed(2)+'</span>';
-        accordionInner.appendChild(child);
+          '</div>';
+        child.appendChild(childAmount);
+
+        const swipeContainer = createSwipeContainer(child, entry);
+        accordionInner.appendChild(swipeContainer);
       });
 
       accordion.appendChild(accordionInner);
