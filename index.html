@@ -1159,6 +1159,7 @@ let selected = "";
 let scriptUrl = "";
 let entries = [];
 let saving = false;
+let currentTheme = "system";
 let pendingDelete = null;    // entry to delete (set when confirm modal opens)
 let activeSwipe = null;      // currently swiped-open element
 
@@ -1182,6 +1183,37 @@ function init() {
     document.getElementById("recentSection").style.opacity = "1";
   }, 100);
 }
+
+// ---- Theme System ----
+function applyTheme(theme) {
+  const root = document.documentElement;
+  currentTheme = theme;
+  
+  if (theme === "system") {
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    root.setAttribute("data-theme", prefersDark ? "dark" : "light");
+  } else {
+    root.setAttribute("data-theme", theme);
+  }
+  
+  localStorage.setItem("exp_theme", theme);
+  
+  // Update active button state
+  document.querySelectorAll(".theme-option").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.theme === theme);
+  });
+  
+  // Update theme-color meta tag
+  const isDark = root.getAttribute("data-theme") === "dark";
+  document.querySelector('meta[name="theme-color"]').content = isDark ? "#050506" : "#fafafa";
+}
+
+// Listen for system theme changes
+window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+  if (currentTheme === "system") {
+    applyTheme("system");
+  }
+});
 
 function updateDateDisplay() {
   const val = document.getElementById("dateInput").value;
@@ -1249,14 +1281,6 @@ document.getElementById("connectBtn").onclick = () => {
   document.getElementById("settingsPanel").classList.remove("open");
   showToast("Linked to spreadsheet");
 };
-
-// ---- Theme selector ----
-document.querySelectorAll(".theme-option").forEach(btn => {
-  btn.onclick = () => {
-    const theme = btn.dataset.theme;
-    applyTheme(theme);
-  };
-});
 
 // ---- Theme selector ----
 document.querySelectorAll(".theme-option").forEach(btn => {
