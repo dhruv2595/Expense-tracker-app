@@ -1241,6 +1241,18 @@ function parseDateToSortable(dateStr) {
   return `${year}-${month}-${day}`;
 }
 
+function sortEntriesChronologically() {
+  entries.sort((a, b) => {
+    try {
+      const dateA = parseDateToSortable(a.date);
+      const dateB = parseDateToSortable(b.date);
+      return dateB.localeCompare(dateA); // newest first
+    } catch(e) {
+      return 0;
+    }
+  });
+}
+
 function fmtDate(s) {
   const p = s.split("-");
   const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -1396,29 +1408,36 @@ function showToast(msg, isError) {
 //  VERIFICATION: GET expenses from spreadsheet to confirm changes
 // ==================================================================
 
+// Normalize any date format to "D MMM, YYYY"
+function normalizeServerDate(d) {
+  if (!d) return '';
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  try {
+    var dt = new Date(d);
+    if (!isNaN(dt.getTime())) {
+      return dt.getDate() + ' ' + months[dt.getMonth()] + ', ' + dt.getFullYear();
+    }
+  } catch(e) {}
+  return String(d).trim();
+}
+
 async function fetchServerExpenses() {
-  // doGet returns JSON with { success, entries }
-  // Apps Script web apps redirect — fetch follows by default
   const resp = await fetch(scriptUrl, { redirect: "follow" });
   const data = await resp.json();
-  if (data.success) return data.entries || [];
+  if (data.success) {
+    // Normalize dates from server (could be Date objects serialized as long strings)
+    return (data.entries || []).map(e => ({
+      ...e,
+      date: normalizeServerDate(e.date)
+    }));
+  }
   throw new Error(data.message || "Unknown error");
 }
 
 // Check if an expense EXISTS in the server list
 function existsOnServer(serverList, entry) {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  function normalizeDate(d) {
-    if (!d) return '';
-    // If it's a date string from the spreadsheet (could be ISO or date object string)
-    var dt = (typeof d === 'string') ? new Date(d) : d;
-    if (dt instanceof Date && !isNaN(dt.getTime())) {
-      return dt.getDate() + ' ' + months[dt.getMonth()] + ', ' + dt.getFullYear();
-    }
-    return String(d).trim();
-  }
   return serverList.some(s =>
-    normalizeDate(s.date) === entry.date &&
+    s.date === entry.date &&
     s.category === entry.category &&
     parseFloat(s.amount).toFixed(2) === parseFloat(entry.amount).toFixed(2) &&
     (s.notes || "") === (entry.notes || "")
