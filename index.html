@@ -3,6 +3,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1278,7 +1279,7 @@ document.getElementById("connectBtn").onclick = () => {
   scriptUrl = url;
   localStorage.setItem("exp_url", url);
   document.getElementById("connectedBadge").style.display = "inline-flex";
-  document.getElementById("settingsPanel").classList.remove("open");
+  document.getElementById("settingsPage").classList.remove("open");
   showToast("Linked to spreadsheet");
 };
 
