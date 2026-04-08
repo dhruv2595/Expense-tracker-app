@@ -4,6 +4,7 @@
 
 
 
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1396,18 +1397,28 @@ function showToast(msg, isError) {
 // ==================================================================
 
 async function fetchServerExpenses() {
-  // doGet returns JSON with { success, expenses }
+  // doGet returns JSON with { success, entries }
   // Apps Script web apps redirect — fetch follows by default
   const resp = await fetch(scriptUrl, { redirect: "follow" });
   const data = await resp.json();
-  if (data.success) return data.expenses;
-  throw new Error(data.error || "Unknown error");
+  if (data.success) return data.entries || [];
+  throw new Error(data.message || "Unknown error");
 }
 
 // Check if an expense EXISTS in the server list
 function existsOnServer(serverList, entry) {
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  function normalizeDate(d) {
+    if (!d) return '';
+    // If it's a date string from the spreadsheet (could be ISO or date object string)
+    var dt = (typeof d === 'string') ? new Date(d) : d;
+    if (dt instanceof Date && !isNaN(dt.getTime())) {
+      return dt.getDate() + ' ' + months[dt.getMonth()] + ', ' + dt.getFullYear();
+    }
+    return String(d).trim();
+  }
   return serverList.some(s =>
-    s.date === entry.date &&
+    normalizeDate(s.date) === entry.date &&
     s.category === entry.category &&
     parseFloat(s.amount).toFixed(2) === parseFloat(entry.amount).toFixed(2) &&
     (s.notes || "") === (entry.notes || "")
